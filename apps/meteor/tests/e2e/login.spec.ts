@@ -1,7 +1,7 @@
 import { faker } from '@faker-js/faker';
 
-import { test, expect } from './utils/test';
 import { Registration } from './page-objects';
+import { test, expect } from './utils/test';
 
 test.describe.parallel('Login', () => {
 	let poRegistration: Registration;
@@ -11,6 +11,11 @@ test.describe.parallel('Login', () => {
 
 		await page.goto('/home');
 	});
+
+	test('should not have any accessibility violations', async ({ makeAxeBuilder }) => {
+		const results = await makeAxeBuilder().analyze();
+		expect(results.violations).toEqual([]);
+	})
 
 	test('Login with invalid credentials', async () => {
 		await test.step('expect to have username and password marked as invalid', async () => {

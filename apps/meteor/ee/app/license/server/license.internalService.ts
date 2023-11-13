@@ -1,9 +1,9 @@
 import type { ILicense } from '@rocket.chat/core-services';
 import { api, ServiceClassInternal } from '@rocket.chat/core-services';
+import { License, type LicenseModule } from '@rocket.chat/license';
 
 import { guestPermissions } from '../../authorization/lib/guestPermissions';
 import { resetEnterprisePermissions } from '../../authorization/server/resetEnterprisePermissions';
-import { getModules, hasLicense, isEnterprise, onModule, onValidateLicenses } from './license';
 
 export class LicenseService extends ServiceClassInternal implements ILicense {
 	protected name = 'license';
@@ -11,39 +11,43 @@ export class LicenseService extends ServiceClassInternal implements ILicense {
 	constructor() {
 		super();
 
-		onValidateLicenses((): void => {
-			if (!isEnterprise()) {
+		License.onValidateLicense((): void => {
+			if (!License.hasValidLicense()) {
 				return;
 			}
 
-			api.broadcast('authorization.guestPermissions', guestPermissions);
-			resetEnterprisePermissions();
+			void api.broadcast('authorization.guestPermissions', guestPermissions);
+			void resetEnterprisePermissions();
 		});
 
-		onModule((licenseModule) => {
-			api.broadcast('license.module', licenseModule);
+		License.onModule((licenseModule) => {
+			void api.broadcast('license.module', licenseModule);
 		});
+
+		this.onEvent('license.actions', (preventedActions) => License.syncShouldPreventActionResults(preventedActions));
+
+		this.onEvent('license.sync', () => License.sync());
 	}
 
 	async started(): Promise<void> {
-		if (!isEnterprise()) {
+		if (!License.hasValidLicense()) {
 			return;
 		}
 
-		api.broadcast('authorization.guestPermissions', guestPermissions);
-		resetEnterprisePermissions();
+		void api.broadcast('authorization.guestPermissions', guestPermissions);
+		await resetEnterprisePermissions();
 	}
 
-	hasLicense(feature: string): boolean {
-		return hasLicense(feature);
+	hasModule(feature: LicenseModule): boolean {
+		return License.hasModule(feature);
 	}
 
-	isEnterprise(): boolean {
-		return isEnterprise();
+	hasValidLicense(): boolean {
+		return License.hasValidLicense();
 	}
 
 	getModules(): string[] {
-		return getModules();
+		return License.getModules();
 	}
 
 	getGuestPermissions(): string[] {

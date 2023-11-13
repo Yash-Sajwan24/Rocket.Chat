@@ -1,11 +1,13 @@
 import crypto from 'crypto';
 
-import polka from 'polka';
-import WebSocket from 'ws';
 import { MeteorService, Presence, ServiceClass } from '@rocket.chat/core-services';
+import { InstanceStatus } from '@rocket.chat/instance-status';
+import polka from 'polka';
+import { throttle } from 'underscore';
+import WebSocket from 'ws';
 
-import type { NotificationsModule } from '../../../../apps/meteor/server/modules/notifications/notifications.module';
 import { ListenersModule } from '../../../../apps/meteor/server/modules/listeners/listeners.module';
+import type { NotificationsModule } from '../../../../apps/meteor/server/modules/notifications/notifications.module';
 import { StreamerCentral } from '../../../../apps/meteor/server/modules/streamer/streamer.module';
 import { Client } from './Client';
 import { events, server } from './configureServer';
@@ -50,6 +52,11 @@ export class DDPStreamer extends ServiceClass {
 		});
 	}
 
+	// update connections count every 30 seconds
+	updateConnections = throttle(() => {
+		InstanceStatus.updateConnections(this.wss?.clients.size ?? 0);
+	}, 30000);
+
 	async created(): Promise<void> {
 		if (!this.context) {
 			return;
@@ -66,6 +73,15 @@ export class DDPStreamer extends ServiceClass {
 		}
 
 		metrics.register({
+			name: 'rocketchat_subscription',
+			type: 'histogram',
+			labelNames: ['subscription'],
+			description: 'Client subscriptions to Rocket.Chat',
+			unit: 'millisecond',
+			quantiles: true,
+		});
+
+		metrics.register({
 			name: 'users_connected',
 			type: 'gauge',
 			labelNames: ['nodeID'],
@@ -78,6 +94,8 @@ export class DDPStreamer extends ServiceClass {
 			labelNames: ['nodeID'],
 			description: 'Users logged by streamer',
 		});
+
+		server.setMetrics(metrics);
 
 		server.on(DDP_EVENTS.CONNECTED, () => {
 			metrics.increment('users_connected', { nodeID }, 1);
@@ -98,6 +116,8 @@ export class DDPStreamer extends ServiceClass {
 			const { userId, connection } = info;
 
 			Presence.newConnection(userId, connection.id, nodeID);
+			this.updateConnections();
+
 			this.api?.broadcast('accounts.login', { userId, connection });
 		});
 
@@ -105,6 +125,8 @@ export class DDPStreamer extends ServiceClass {
 			const { userId, connection } = info;
 
 			this.api?.broadcast('accounts.logout', { userId, connection });
+
+			this.updateConnections();
 
 			if (!userId) {
 				return;
@@ -116,6 +138,8 @@ export class DDPStreamer extends ServiceClass {
 			const { userId, connection } = info;
 
 			this.api?.broadcast('socket.disconnected', connection);
+
+			this.updateConnections();
 
 			if (!userId) {
 				return;
@@ -140,7 +164,11 @@ export class DDPStreamer extends ServiceClass {
 			.use(proxy())
 			.get('/health', async (_req, res) => {
 				try {
-					await this.api?.nodeList();
+					if (!this.api) {
+						throw new Error('API not available');
+					}
+
+					await this.api.nodeList();
 					res.end('ok');
 				} catch (err) {
 					console.error('Service not healthy', err);
@@ -162,6 +190,8 @@ export class DDPStreamer extends ServiceClass {
 		this.wss = new WebSocket.Server({ server: this.app.server });
 
 		this.wss.on('connection', (ws, req) => new Client(ws, req.url !== '/websocket', req));
+
+		InstanceStatus.registerInstance('ddp-streamer', {});
 	}
 
 	async stopped(): Promise<void> {

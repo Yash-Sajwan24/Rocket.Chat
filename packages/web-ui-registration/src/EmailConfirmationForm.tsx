@@ -1,13 +1,13 @@
-import { FieldGroup, TextInput, Field, ButtonGroup, Button, Callout } from '@rocket.chat/fuselage';
+import { FieldGroup, TextInput, Field, FieldLabel, FieldRow, FieldError, ButtonGroup, Button, Callout } from '@rocket.chat/fuselage';
 import { Form, ActionLink } from '@rocket.chat/layout';
-import { useTranslation } from '@rocket.chat/ui-contexts';
 import type { ReactElement } from 'react';
 import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 
 import { useLoginSendEmailConfirmation } from './hooks/useLoginSendEmailConfirmation';
 
 export const EmailConfirmationForm = ({ email, onBackToLogin }: { email?: string; onBackToLogin: () => void }): ReactElement => {
-	const t = useTranslation();
+	const { t } = useTranslation();
 
 	const {
 		register,
@@ -29,30 +29,30 @@ export const EmailConfirmationForm = ({ email, onBackToLogin }: { email?: string
 				if (sendEmail.isLoading) {
 					return;
 				}
-				sendEmail.mutate({ email: data.email });
+				sendEmail.mutate(data.email);
 			})}
 		>
 			<Form.Header>
-				<Form.Title>{t('Confirmation')}</Form.Title>
+				<Form.Title>{t('registration.component.form.confirmation')}</Form.Title>
 				<Form.Subtitle>{t('registration.page.emailVerification.subTitle')}</Form.Subtitle>
 			</Form.Header>
 			<Form.Container>
 				<FieldGroup disabled={sendEmail.isLoading || sendEmail.isSuccess}>
 					<Field>
-						<Field.Label htmlFor='email'>{t('Email')}*</Field.Label>
-						<Field.Row>
+						<FieldLabel htmlFor='email'>{t('registration.component.form.email')}*</FieldLabel>
+						<FieldRow>
 							<TextInput
 								{...register('email', {
 									required: true,
 								})}
 								disabled={Boolean(email)}
-								error={errors.email && t('onboarding.component.form.requiredField')}
+								error={errors.email && t('registration.component.form.requiredField')}
 								aria-invalid={errors?.email?.type === 'required'}
-								placeholder={t('Email_Placeholder')}
+								placeholder={t('registration.component.form.emailPlaceholder')}
 								id='email'
 							/>
-						</Field.Row>
-						{errors.email && <Field.Error>{t('onboarding.component.form.requiredField')}</Field.Error>}
+						</FieldRow>
+						{errors.email && <FieldError>{t('registration.component.form.requiredField')}</FieldError>}
 					</Field>
 				</FieldGroup>
 				{sendEmail.isSuccess && (
@@ -63,8 +63,8 @@ export const EmailConfirmationForm = ({ email, onBackToLogin }: { email?: string
 			</Form.Container>
 			<Form.Footer>
 				<ButtonGroup>
-					<Button type='submit' primary>
-						{t('Send_confirmation_email')}
+					<Button loading={sendEmail.isLoading} type='submit' primary>
+						{t('registration.component.form.sendConfirmationEmail')}
 					</Button>
 				</ButtonGroup>
 

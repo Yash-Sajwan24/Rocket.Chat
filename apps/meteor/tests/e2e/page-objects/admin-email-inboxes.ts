@@ -8,7 +8,7 @@ export class AdminEmailInboxes {
 	}
 
 	get btnNewEmailInbox(): Locator {
-		return this.page.locator('//button >> text="New Email Inbox"');
+		return this.page.locator('role=button[name="New Email Inbox"]');
 	}
 
 	get inputName(): Locator {
@@ -62,10 +62,6 @@ export class AdminEmailInboxes {
 	}
 
 	itemRow(name: string): Locator {
-		return this.page.locator(`td >> text=${name}`);
-	}
-
-	findEmailInbox(email: string): Locator {
-		return this.page.locator(`td >> text=${email}`);
+		return this.page.locator(`td >> text="${name}"`);
 	}
 }

@@ -1,12 +1,11 @@
 import type { ISetting } from '@rocket.chat/core-typings';
-import type { AdminInfoPage, OrganizationInfoPage, RegisteredServerPage } from '@rocket.chat/onboarding-ui';
+import type { AdminInfoPage, OrganizationInfoPage, RegisterServerPage } from '@rocket.chat/onboarding-ui';
 import type { ComponentProps, Dispatch, SetStateAction } from 'react';
 import { createContext, useContext } from 'react';
 
 type SetupWizardData = {
-	adminData: Omit<Parameters<ComponentProps<typeof AdminInfoPage>['onSubmit']>[0], 'keepPosted'>;
 	organizationData: Parameters<ComponentProps<typeof OrganizationInfoPage>['onSubmit']>[0];
-	serverData: Parameters<ComponentProps<typeof RegisteredServerPage>['onSubmit']>[0];
+	serverData: Parameters<ComponentProps<typeof RegisterServerPage>['onSubmit']>[0];
 	registrationData: {
 		device_code: string;
 		user_code: string;
@@ -28,20 +27,18 @@ type SetupWizarContextValue = {
 	goToPreviousStep: () => void;
 	goToNextStep: () => void;
 	goToStep: (step: number) => void;
-	registerAdminUser: () => Promise<void>;
+	registerAdminUser: (user: Omit<Parameters<ComponentProps<typeof AdminInfoPage>['onSubmit']>[0], 'keepPosted'>) => Promise<void>;
 	registerServer: (params: { email: string; resend?: boolean }) => Promise<void>;
 	saveWorkspaceData: () => Promise<void>;
-	saveOrganizationData: () => Promise<void>;
+	saveOrganizationData: (data: SetupWizardData['organizationData']) => Promise<void>;
 	completeSetupWizard: () => Promise<void>;
 	maxSteps: number;
 };
 
 export const SetupWizardContext = createContext<SetupWizarContextValue>({
 	setupWizardData: {
-		adminData: { fullname: '', username: '', email: '', password: '' },
 		organizationData: {
 			organizationName: '',
-			organizationType: '',
 			organizationIndustry: '',
 			organizationSize: '',
 			country: '',
@@ -49,7 +46,6 @@ export const SetupWizardContext = createContext<SetupWizarContextValue>({
 		serverData: {
 			agreement: false,
 			email: '',
-			registerType: 'registered',
 			updates: false,
 		},
 		registrationData: { cloudEmail: '', user_code: '', device_code: '' },

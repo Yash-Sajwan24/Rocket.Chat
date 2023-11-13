@@ -12,7 +12,7 @@ import Triggers from './triggers';
 const createOrUpdateGuest = async (guest) => {
 	const { token } = guest;
 	token && (await store.setState({ token }));
-	const user = await Livechat.grantVisitor({ visitor: { ...guest } });
+	const { visitor: user } = await Livechat.grantVisitor({ visitor: { ...guest } });
 	store.setState({ user });
 };
 
@@ -137,15 +137,11 @@ const api = {
 	},
 
 	async setGuestToken(token) {
-		const {
-			token: localToken,
-			iframe,
-			iframe: { guest },
-		} = store.state;
+		const { token: localToken } = store.state;
 		if (token === localToken) {
 			return;
 		}
-		store.setState({ token, iframe: { ...iframe, guest: { ...guest, token } } });
+		createOrUpdateGuest({ token });
 		await loadConfig();
 	},
 
@@ -199,6 +195,9 @@ const api = {
 	maximizeWidget() {
 		store.setState({ minimized: false });
 		parentCall('openWidget');
+	},
+	setParentUrl(parentUrl) {
+		store.setState({ parentUrl });
 	},
 };
 

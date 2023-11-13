@@ -1,18 +1,14 @@
-import { Meteor } from 'meteor/meteor';
 import type { IMessage } from '@rocket.chat/core-typings';
 import { Emitter } from '@rocket.chat/emitter';
-import $ from 'jquery';
+import { Meteor } from 'meteor/meteor';
 
-import { withDebouncing } from '../../../../lib/utils/highOrderFunctions';
 import type { ComposerAPI } from '../../../../client/lib/chats/ChatAPI';
-import './messageBoxActions';
+import { withDebouncing } from '../../../../lib/utils/highOrderFunctions';
 import type { FormattingButton } from './messageBoxFormatting';
 import { formattingButtons } from './messageBoxFormatting';
 
 export const createComposerAPI = (input: HTMLTextAreaElement, storageID: string): ComposerAPI => {
 	const triggerEvent = (input: HTMLTextAreaElement, evt: string): void => {
-		$(input).trigger(evt);
-
 		const event = new Event(evt, { bubbles: true });
 		// TODO: Remove this hack for react to trigger onChange
 		const tracker = (input as any)._valueTracker;
@@ -22,7 +18,14 @@ export const createComposerAPI = (input: HTMLTextAreaElement, storageID: string)
 		input.dispatchEvent(event);
 	};
 
-	const emitter = new Emitter<{ quotedMessagesUpdate: void; editing: void; recording: void; recordingVideo: void; formatting: void }>();
+	const emitter = new Emitter<{
+		quotedMessagesUpdate: void;
+		editing: void;
+		recording: void;
+		recordingVideo: void;
+		formatting: void;
+		mircophoneDenied: void;
+	}>();
 
 	let _quotedMessages: IMessage[] = [];
 
@@ -45,13 +48,15 @@ export const createComposerAPI = (input: HTMLTextAreaElement, storageID: string)
 		text: string,
 		{
 			selection,
+			skipFocus,
 		}: {
 			selection?:
 				| { readonly start?: number; readonly end?: number }
 				| ((previous: { readonly start: number; readonly end: number }) => { readonly start?: number; readonly end?: number });
+			skipFocus?: boolean;
 		} = {},
 	): void => {
-		focus();
+		!skipFocus && focus();
 
 		const { selectionStart, selectionEnd } = input;
 		const textAreaTxt = input.value;
@@ -61,9 +66,9 @@ export const createComposerAPI = (input: HTMLTextAreaElement, storageID: string)
 		}
 
 		if (selection) {
-			if (!document.execCommand || !document.execCommand('insertText', false, text)) {
+			if (!document.execCommand?.('insertText', false, text)) {
 				input.value = textAreaTxt.substring(0, selectionStart) + text + textAreaTxt.substring(selectionStart);
-				focus();
+				!skipFocus && focus();
 			}
 			input.setSelectionRange(selection.start ?? 0, selection.end ?? text.length);
 		}
@@ -75,7 +80,7 @@ export const createComposerAPI = (input: HTMLTextAreaElement, storageID: string)
 		triggerEvent(input, 'input');
 		triggerEvent(input, 'change');
 
-		focus();
+		!skipFocus && focus();
 	};
 
 	const insertText = (text: string): void => {
@@ -168,6 +173,21 @@ export const createComposerAPI = (input: HTMLTextAreaElement, storageID: string)
 		];
 	})();
 
+	const [isMicrophoneDenied, setIsMicrophoneDenied] = (() => {
+		let isMicrophoneDenied = false;
+
+		return [
+			{
+				get: () => isMicrophoneDenied,
+				subscribe: (callback: () => void) => emitter.on('mircophoneDenied', callback),
+			},
+			(value: boolean) => {
+				isMicrophoneDenied = value;
+				emitter.emit('mircophoneDenied');
+			},
+		];
+	})();
+
 	const setEditingMode = (editing: boolean): void => {
 		setEditing(editing);
 	};
@@ -214,7 +234,7 @@ export const createComposerAPI = (input: HTMLTextAreaElement, storageID: string)
 				input.selectionStart = selectionStart - startPattern.length;
 				input.selectionEnd = selectionEnd + endPattern.length;
 
-				if (!document.execCommand || !document.execCommand('insertText', false, selectedText)) {
+				if (!document.execCommand?.('insertText', false, selectedText)) {
 					input.value = initText.slice(0, initText.length - startPattern.length) + selectedText + finalText.slice(endPattern.length);
 				}
 
@@ -228,7 +248,7 @@ export const createComposerAPI = (input: HTMLTextAreaElement, storageID: string)
 			}
 		}
 
-		if (!document.execCommand || !document.execCommand('insertText', false, pattern.replace('{{text}}', selectedText))) {
+		if (!document.execCommand?.('insertText', false, pattern.replace('{{text}}', selectedText))) {
 			input.value = initText + pattern.replace('{{text}}', selectedText) + finalText;
 		}
 
@@ -242,10 +262,46 @@ export const createComposerAPI = (input: HTMLTextAreaElement, storageID: string)
 
 	const insertNewLine = (): void => insertText('\n');
 
-	setText(Meteor._localStorage.getItem(storageID) ?? '');
+	setText(Meteor._localStorage.getItem(storageID) ?? '', {
+		skipFocus: true,
+	});
+
+	// Gets the text that is connected to the cursor and replaces it with the given text
+	const replaceText = (text: string, selection: { readonly start: number; readonly end: number }): void => {
+		const { selectionStart, selectionEnd } = input;
+
+		// Selects the text that is connected to the cursor
+		input.setSelectionRange(selection.start ?? 0, selection.end ?? text.length);
+		const textAreaTxt = input.value;
+
+		if (!document.execCommand?.('insertText', false, text)) {
+			input.value = textAreaTxt.substring(0, selection.start) + text + textAreaTxt.substring(selection.end);
+		}
+
+		input.selectionStart = selectionStart + text.length;
+		input.selectionEnd = selectionStart + text.length;
+		if (selectionStart !== selectionEnd) {
+			input.selectionStart = selectionStart;
+		}
+
+		triggerEvent(input, 'input');
+		triggerEvent(input, 'change');
+
+		focus();
+	};
 
 	return {
+		replaceText,
 		insertNewLine,
+		blur: () => input.blur(),
+
+		substring: (start: number, end?: number) => {
+			return input.value.substring(start, end);
+		},
+
+		getCursorPosition: () => {
+			return input.selectionStart;
+		},
 		setCursorToEnd: () => {
 			input.selectionEnd = input.value.length;
 			input.selectionStart = input.selectionEnd;
@@ -284,5 +340,7 @@ export const createComposerAPI = (input: HTMLTextAreaElement, storageID: string)
 		dismissAllQuotedMessages,
 		quotedMessages,
 		formatters,
+		isMicrophoneDenied,
+		setIsMicrophoneDenied,
 	};
 };

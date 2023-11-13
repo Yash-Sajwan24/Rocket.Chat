@@ -1,7 +1,7 @@
-import { Modal, Box, Field, FieldGroup, TextInput, Button } from '@rocket.chat/fuselage';
+import { Modal, Box, Field, FieldGroup, FieldLabel, FieldRow, FieldError, TextInput, Button } from '@rocket.chat/fuselage';
 import { useAutoFocus } from '@rocket.chat/fuselage-hooks';
 import { useToastMessageDispatch, useTranslation } from '@rocket.chat/ui-contexts';
-import type { ReactElement, ChangeEvent, FormEventHandler } from 'react';
+import type { ReactElement, ChangeEvent, FormEventHandler, ComponentProps } from 'react';
 import React, { memo, useState, useEffect } from 'react';
 
 import FilePreview from './FilePreview';
@@ -71,30 +71,30 @@ const FileUploadModal = ({
 	}, [file, dispatchToastMessage, invalidContentType, t, onClose]);
 
 	return (
-		<Modal>
-			<Box is='form' display='flex' flexDirection='column' height='100%' onSubmit={handleSubmit}>
+		<Modal wrapperFunction={(props: ComponentProps<typeof Box>) => <Box is='form' onSubmit={handleSubmit} {...props} />}>
+			<Box display='flex' flexDirection='column' height='100%'>
 				<Modal.Header>
 					<Modal.Title>{t('FileUpload')}</Modal.Title>
 					<Modal.Close onClick={onClose} />
 				</Modal.Header>
-				<Modal.Content overflow='hidden'>
-					<Box display='flex' maxHeight='x360' w='full' justifyContent='center' alignContent='center' mbe='x16'>
+				<Modal.Content>
+					<Box display='flex' maxHeight='x360' w='full' justifyContent='center' alignContent='center' mbe={16}>
 						<FilePreview file={file} />
 					</Box>
 					<FieldGroup>
 						<Field>
-							<Field.Label>{t('Upload_file_name')}</Field.Label>
-							<Field.Row>
+							<FieldLabel>{t('Upload_file_name')}</FieldLabel>
+							<FieldRow>
 								<TextInput value={name} onChange={handleName} />
-							</Field.Row>
-							{!name && <Field.Error>{t('error-the-field-is-required', { field: t('Name') })}</Field.Error>}
+							</FieldRow>
+							{!name && <FieldError>{t('error-the-field-is-required', { field: t('Name') })}</FieldError>}
 						</Field>
 						{showDescription && (
 							<Field>
-								<Field.Label>{t('Upload_file_description')}</Field.Label>
-								<Field.Row>
+								<FieldLabel>{t('Upload_file_description')}</FieldLabel>
+								<FieldRow>
 									<TextInput value={description} onChange={handleDescription} placeholder={t('Description')} ref={ref} />
-								</Field.Row>
+								</FieldRow>
 							</Field>
 						)}
 					</FieldGroup>

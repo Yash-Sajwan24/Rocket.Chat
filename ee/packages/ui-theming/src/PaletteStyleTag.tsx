@@ -1,19 +1,27 @@
-import type { ReactElement } from 'react';
-import React from 'react';
+import { memo } from 'react';
 import { createPortal } from 'react-dom';
-import { useSessionStorage } from '@rocket.chat/fuselage-hooks';
 
-import { convertToCss } from './convertToCss';
-import { filterOnlyChangedColors } from './filterOnlyChangedColors';
+import { codeBlock } from './codeBlockStyles';
+import { convertToCss } from './helpers/convertToCss';
+import { useCreateStyleContainer } from './hooks/useCreateStyleContainer';
+import { useThemeMode } from './hooks/useThemeMode';
 import { defaultPalette } from './palette';
 import { darkPalette } from './paletteDark';
+import { paletteHighContrast } from './paletteHighContrast';
 
-export const PaletteStyleTag = (): ReactElement | null => {
-	const [theme] = useSessionStorage<'dark' | 'light'>(`rcx-theme`, 'light');
+export const PaletteStyleTag = memo(function PaletteStyleTag() {
+	const [, , theme] = useThemeMode();
 
-	if (theme !== 'dark') {
-		return null;
-	}
+	const getPalette = () => {
+		if (theme === 'dark') {
+			return darkPalette;
+		}
+		if (theme === 'high-contrast') {
+			return paletteHighContrast;
+		}
+		return defaultPalette;
+	};
+	const palette = convertToCss(getPalette(), '.rcx-content--main, .rcx-tile');
 
-	return createPortal(<style>{convertToCss(filterOnlyChangedColors(defaultPalette, darkPalette))}</style>, document.head);
-};
+	return createPortal(theme === 'dark' ? palette + codeBlock : palette, useCreateStyleContainer('main-palette'));
+});

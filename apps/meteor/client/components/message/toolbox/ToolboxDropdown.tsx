@@ -1,5 +1,5 @@
-import { css } from '@rocket.chat/css-in-js';
 import { Box } from '@rocket.chat/fuselage';
+import { useOutsideClick } from '@rocket.chat/fuselage-hooks';
 import { useLayout } from '@rocket.chat/ui-contexts';
 import type { ReactNode, ReactElement } from 'react';
 import React, { useRef } from 'react';
@@ -7,32 +7,31 @@ import React, { useRef } from 'react';
 import DesktopToolboxDropdown from './DesktopToolboxDropdown';
 import MobileToolboxDropdown from './MobileToolboxDropdown';
 
-const style = css`
-	top: 0;
-	bottom: 0;
-	left: 0;
-	right: 0;
-`;
-
 type ToolboxDropdownProps<R> = {
 	children: ReactNode;
 	reference: React.RefObject<R>;
-	container: Element;
+	handleClose: () => void;
 };
 
-const ToolboxDropdown = <R extends HTMLElement>({ children, reference, container, ...props }: ToolboxDropdownProps<R>): ReactElement => {
+const ToolboxDropdown = <TReferenceElement extends HTMLElement>({
+	children,
+	handleClose,
+	reference,
+}: ToolboxDropdownProps<TReferenceElement>): ReactElement => {
 	const { isMobile } = useLayout();
 	const target = useRef<HTMLButtonElement>(null);
+	const boxRef = useRef<HTMLDivElement>(null);
 
 	const Dropdown = isMobile ? MobileToolboxDropdown : DesktopToolboxDropdown;
 
+	useOutsideClick([boxRef], handleClose);
+
 	return (
-		<>
-			<Box className={style} position='fixed' />
-			<Dropdown ref={target} reference={reference} container={container} {...props}>
+		<Dropdown ref={target} reference={reference}>
+			<Box w='full' h='full' ref={boxRef}>
 				{children}
-			</Dropdown>
-		</>
+			</Box>
+		</Dropdown>
 	);
 };
 
